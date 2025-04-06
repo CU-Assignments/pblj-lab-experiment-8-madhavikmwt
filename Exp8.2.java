@@ -1,27 +1,56 @@
-Steps to Create a JDBC-Integrated Servlet for Employee Management
-1. Set Up Database
-Create a MySQL database (EmployeeDB).
-Create an employees table with columns (id, name, department, salary).
-Insert sample employee data.
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.*;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.*;
 
-2. Set Up Your Java Project
-Add MySQL JDBC Driver (via Maven or manually).
-Configure Apache Tomcat in your IDE.
+@WebServlet("/EmployeeServlet")
+public class EmployeeServlet extends HttpServlet {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        String empId = request.getParameter("id");
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
 
-3. Create Database Connection Class
-Write a utility class (DBConnection.java) to establish a connection with the MySQL database.
+        out.println("<html><head><title>Employee Management</title></head><body>");
+        out.println("<h2>Employee Management</h2>");
+        out.println("<form method='get'>Search by ID: <input type='text' name='id'/> <input type='submit' value='Search'/></form><br>");
 
-4. Develop the Servlet (EmployeeServlet.java)
-- Handle GET requests to fetch all employees or search by Employee ID.
-- Use JDBC to query data and display it in HTML format.
-- Implement a search form for filtering employees by ID.
+        try (Connection conn = DBConnection.getConnection()) {
+            String query;
+            if (empId != null && !empId.trim().isEmpty()) {
+                query = "SELECT * FROM employees WHERE id = ?";
+                try (PreparedStatement stmt = conn.prepareStatement(query)) {
+                    stmt.setInt(1, Integer.parseInt(empId));
+                    ResultSet rs = stmt.executeQuery();
+                    if (!rs.isBeforeFirst()) {
+                        out.println("<p>No employee found with ID: " + empId + "</p>");
+                    } else {
+                        displayTable(rs, out);
+                    }
+                }
+            } else {
+                query = "SELECT * FROM employees";
+                try (Statement stmt = conn.createStatement();
+                     ResultSet rs = stmt.executeQuery(query)) {
+                    displayTable(rs, out);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace(out);
+        }
 
-5. Deploy and Run
-Deploy the servlet on Tomcat.
-Access it via http://localhost:8080/YourAppName/EmployeeServlet.
-(The page displays employee records and allows searching by ID.)
+        out.println("</body></html>");
+    }
 
-Note : Enhancements (Optional)
-Improve UI with CSS & Bootstrap.
-
-
+    private void displayTable(ResultSet rs, PrintWriter out) throws SQLException {
+        out.println("<table border='1'><tr><th>ID</th><th>Name</th><th>Department</th><th>Salary</th></tr>");
+        while (rs.next()) {
+            out.println("<tr><td>" + rs.getInt("id") + "</td><td>" +
+                        rs.getString("name") + "</td><td>" +
+                        rs.getString("department") + "</td><td>" +
+                        rs.getDouble("salary") + "</td></tr>");
+        }
+        out.println("</table>");
+    }
+}
